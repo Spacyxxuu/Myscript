@@ -1,76 +1,77 @@
 -- 📦 Charger Rayfield UI
 local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Rayfield/main/source"))()
 
--- 🎮 Variables utiles
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
 
--- 🪟 Fenêtre principale
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+
 local Window = Rayfield:CreateWindow({
-   Name = "Zypherion | Universal",
+   Name = "Universal GUI | Dev: Spacyxxuu",
    LoadingTitle = "Chargement...",
-   LoadingSubtitle = "Script par Spacyxxuu",
-   ConfigurationSaving = {
-      Enabled = false
-   },
+   LoadingSubtitle = "Educational Script",
+   ConfigurationSaving = { Enabled = false },
    KeySystem = false
 })
 
--- 🔫 Onglet Combat
+-- Combat Tab
 local Combat = Window:CreateTab("Combat", 4483362458)
+local aimbotEnabled = false
+local aimbotSmoothness = 0.1
+
 Combat:CreateToggle({
-   Name = "Aimbot (à coder)",
+   Name = "Aimbot (Head Lock)",
    CurrentValue = false,
    Callback = function(Value)
-      print("Aimbot activé :", Value)
+      aimbotEnabled = Value
    end
 })
 
 Combat:CreateSlider({
    Name = "Smoothness",
-   Range = {0.1, 1},
-   Increment = 0.1,
-   CurrentValue = 0.5,
+   Range = {0.01, 1},
+   Increment = 0.01,
+   CurrentValue = 0.1,
    Callback = function(Value)
-      print("Smoothness :", Value)
+      aimbotSmoothness = Value
    end
 })
 
--- 👁️ Onglet Visuals
-local Visuals = Window:CreateTab("Visuals", 4483362458)
-
-Visuals:CreateToggle({
-   Name = "Afficher ESP (à coder)",
-   CurrentValue = false,
-   Callback = function(Value)
-      print("ESP activé :", Value)
+-- Aimbot Logic
+RunService.RenderStepped:Connect(function()
+   if aimbotEnabled then
+      local closest, dist = nil, math.huge
+      for _, player in pairs(Players:GetPlayers()) do
+         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            local head = player.Character.Head
+            local screenPos, visible = Camera:WorldToScreenPoint(head.Position)
+            local mousePos = Vector2.new(Mouse.X, Mouse.Y)
+            local headPos2D = Vector2.new(screenPos.X, screenPos.Y)
+            local mag = (mousePos - headPos2D).Magnitude
+            if mag < dist and visible then
+               dist = mag
+               closest = head
+            end
+         end
+      end
+      if closest then
+         local cam = Camera.CFrame.Position
+         local dir = (closest.Position - cam).Unit
+         local newCF = CFrame.new(cam, cam + dir)
+         Camera.CFrame = Camera.CFrame:Lerp(newCF, aimbotSmoothness)
+      end
    end
-})
+end)
 
-Visuals:CreateSlider({
-   Name = "Taille ESP",
-   Range = {1, 10},
-   Increment = 1,
-   CurrentValue = 5,
-   Callback = function(Value)
-      print("Taille ESP :", Value)
-   end
-})
-
-Visuals:CreateColorPicker({
-   Name = "Couleur ESP",
-   Color = Color3.fromRGB(0, 0, 255),
-   Callback = function(Value)
-      print("Couleur ESP :", Value)
-   end
-})
-
--- 🧍 Onglet Player Mods
+-- Player Mods
 local PlayerMods = Window:CreateTab("Player Mods", 4483362458)
 
+-- WalkSpeed
 PlayerMods:CreateSlider({
    Name = "WalkSpeed",
-   Range = {16, 100},
+   Range = {16, 150},
    Increment = 1,
    CurrentValue = 16,
    Callback = function(Value)
@@ -80,78 +81,73 @@ PlayerMods:CreateSlider({
    end
 })
 
+-- Infinite Jump
+local infiniteJumpEnabled = false
 PlayerMods:CreateToggle({
    Name = "Infinite Jump",
    CurrentValue = false,
    Callback = function(Value)
-      if Value then
-         _G.InfiniteJump = true
-         game:GetService("UserInputService").JumpRequest:Connect(function()
-            if _G.InfiniteJump and LocalPlayer.Character then
-               LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
-            end
-         end)
-      else
-         _G.InfiniteJump = false
-      end
+      infiniteJumpEnabled = Value
    end
 })
 
+game:GetService("UserInputService").JumpRequest:Connect(function()
+   if infiniteJumpEnabled and LocalPlayer.Character then
+      LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+   end
+end)
+
+-- Fly (Toggle with E)
 PlayerMods:CreateToggle({
    Name = "Fly (E pour activer)",
    CurrentValue = false,
    Callback = function(Value)
       if Value then
-         loadstring(game:HttpGet("https://pastebin.com/raw/3TSCFJkZ"))() -- Fly Script, E pour toggle
+         loadstring(game:HttpGet("https://pastebin.com/raw/3TSCFJkZ"))()
       end
    end
 })
 
-PlayerMods:CreateToggle({
-   Name = "No Clip",
+-- ESP
+local Visuals = Window:CreateTab("ESP", 4483362458)
+local espEnabled = false
+
+Visuals:CreateToggle({
+   Name = "ESP",
    CurrentValue = false,
    Callback = function(Value)
-      local RunService = game:GetService("RunService")
-      if Value then
-         _G.noclip = true
-         RunService.Stepped:Connect(function()
-            if _G.noclip and LocalPlayer.Character then
-               for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-                  if part:IsA("BasePart") and part.CanCollide == true then
-                     part.CanCollide = false
-                  end
-               end
+      espEnabled = Value
+   end
+})
+
+-- ESP Logic
+RunService.RenderStepped:Connect(function()
+   for _, player in pairs(Players:GetPlayers()) do
+      if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+         if espEnabled then
+            if not player.Character.Head:FindFirstChild("ESP") then
+               local billboard = Instance.new("BillboardGui", player.Character.Head)
+               billboard.Name = "ESP"
+               billboard.Size = UDim2.new(0, 100, 0, 40)
+               billboard.AlwaysOnTop = true
+               local label = Instance.new("TextLabel", billboard)
+               label.Size = UDim2.new(1, 0, 1, 0)
+               label.BackgroundTransparency = 1
+               label.Text = player.Name
+               label.TextColor3 = Color3.fromRGB(255, 0, 0)
+               label.TextStrokeTransparency = 0.5
             end
-         end)
-      else
-         _G.noclip = false
+         else
+            if player.Character.Head:FindFirstChild("ESP") then
+               player.Character.Head.ESP:Destroy()
+            end
+         end
       end
    end
-})
+end)
 
--- Téléportation
-local playerNames = {}
-for _, plr in pairs(Players:GetPlayers()) do
-   if plr ~= LocalPlayer then
-      table.insert(playerNames, plr.Name)
-   end
-end
-
-PlayerMods:CreateDropdown({
-   Name = "Téléportation",
-   Options = playerNames,
-   CurrentOption = "",
-   Callback = function(selected)
-      local target = Players:FindFirstChild(selected)
-      if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-         LocalPlayer.Character:MoveTo(target.Character.HumanoidRootPart.Position + Vector3.new(0, 3, 0))
-      end
-   end
-})
-
--- ⚙️ Onglet UI Settings
+-- UI Keybind
 local UISettings = Window:CreateTab("UI Settings", 4483362458)
-
 UISettings:CreateKeybind({
    Name = "Toggle UI",
    CurrentKeybind = "RightShift",
